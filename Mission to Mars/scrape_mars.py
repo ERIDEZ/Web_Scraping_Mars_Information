@@ -3,37 +3,19 @@
 
 # # Mission to Mars - Scrapping - Erick Hernandez
 
-# ## Phase 1 - Defining operation
-
-# In[1]:
-
-
-# Import of modules
-
 from splinter import Browser
 from bs4 import BeautifulSoup
 from webdriver_manager.chrome import ChromeDriverManager
 import requests
 import pandas as pd
-
-
-# In[2]:
-
-
-# Definition of browser
+from selenium import webdriver
 
 def init_browser():
-    # @NOTE: Replace the path with your actual path to the chromedriver
     executable_path = {"executable_path": ChromeDriverManager().install()}
     return Browser("chrome", **executable_path, headless=False)
 
 
-# ## Phase 2 - Scrapping of news title, description and date
-
-# In[4]:
-
-
-def scrape_data():
+def scrape_header():
     browser = init_browser()
 
     url = "https://mars.nasa.gov/news/?page=0&per_page=40&order=publish_date+desc%2Ccreated_at+desc&search=&category=19%2C165%2C184%2C204&blank_scope=Latest"
@@ -42,8 +24,6 @@ def scrape_data():
     html = browser.html
     
     soup = BeautifulSoup(html, "html.parser")
-    
-    # Scrapping for headers only
     
     headlines = soup("div", class_="content_title")
     headlines = list(headlines)
@@ -54,27 +34,32 @@ def scrape_data():
     my_header = text_slice[2]
     my_header = my_header.replace("</a", "")
     
+    browser.quit()
     
-    # Scrapping for description and date only
+    return my_header
+    
 
-    my_desc = soup.find("div", class_="article_teaser_body").get_text()
-    my_date = soup.find("div", class_="list_date").get_text()
+def scrape_desc():
+    browser = init_browser()
 
-    return f'Header: {my_header} Description: {my_desc} Date: {my_date}'
+    url = "https://mars.nasa.gov/news/?page=0&per_page=40&order=publish_date+desc%2Ccreated_at+desc&search=&category=19%2C165%2C184%2C204&blank_scope=Latest"
+    browser.visit(url)
 
+    html = browser.html
+    
+    soup = BeautifulSoup(html, "html.parser")
 
-# In[5]:
+    # Scrapping for description only
+    try:
+        my_desc = soup.find("div", class_="article_teaser_body").get_text()
+    except AttributeError:
+        my_desc = soup.find("div", class_="article_teaser_body")
+    except AttributeError:
+        my_desc = soup.find("div", class_="article_teaser_body").getText()
 
-
-# Preview
-
-print(scrape_data())
-
-
-#  ## Phase 3 - Scrapping of images
-
-# In[6]:
-
+    browser.quit()
+    
+    return my_desc
 
 def image_scrape():
     browser = init_browser()
@@ -83,96 +68,53 @@ def image_scrape():
     browser.visit(url)
     
     html = browser.html
+    
     soup = BeautifulSoup(html, 'html.parser')
     
     image = soup.find("a", class_="button fancybox").get('data-fancybox-href')
     
-    # Hacer que encuentre con link y id manual
-    
+    browser.quit()
+        
     return f'https://www.jpl.nasa.gov{image}'
-
-
-# In[7]:
-
-
-# Preview
-
-print(image_scrape())
-
-
-# In[8]:
-
-
-# https://www.jpl.nasa.gov/spaceimages/images/wallpaper/PIA16028-1920x1200.jpgBB
-
-
-# Phase 4 - Scrapping of Twitter
-
-# In[8]:
 
 
 def tweet_scrape():
     
     browser = init_browser()
     
-    url = "https://twitter.com/MarsWxReport/with_replies?lang=en"
+    url = "https://twitter.com/MarsWxReport/"
+    
     browser.visit(url)
     
+    browser.execute_script("window.scrollTo(1, document.body.scrollHeight);")
+    
     html = browser.html
+    
+    browser.quit()
+    
     soup = BeautifulSoup(html, 'html.parser')
     
-    tweet = soup.find_all("div", {"class": "css-901oao r-jwli3a r-1qd0xha r-a023e6 r-16dba41 r-ad9z0x r-bcqeeo r-bnwqim r-qvutc0"})
+    tweet_list = soup.find_all("div", class_="css-901oao")
+    tweet_list = str(tweet_list)
     
-    # , {"class": "css-901oao css-16my406 r-1qd0xha r-ad9z0x r-bcqeeo r-qvutc0"}
-    
-    # Hacer que encuentre con link y id manual
-    
-    return tweet
-
-
-# In[9]:
-
-
-print(tweet_scrape())
-
-
-# In[56]:
-
-
-# Phase 5 - Scrapping of Facts
-
-
-# In[61]:
+    return tweet_list
 
 
 def table_scrape():
     
-    browser = init_browser()
-    
     url = "https://space-facts.com/mars/"
-    browser.visit(url)
+ 
+    tables = pd.read_html(url)
 
-    # visitar https://pbpython.com/pandas-html-table.html
+    my_table = pd.DataFrame(tables[0])
     
-    table = soup.find_all("table", {"id": "tablepress-p-mars-no-2"})
-    #table = pd.DataFrame(table)
-
-    return table
-
-
-# In[62]:
-
-
-table_scrape()
-
-
-# In[3]:
-
-
-# Phase 6 - Scrapping of hemispheres images
-
-
-# In[35]:
+    my_table = my_table.rename(columns={0: "Facts", 1: "Data"})
+    
+    my_table.set_index("Facts")
+    
+    html_table = my_table.to_html()
+    
+    return html_table
 
 
 def cerberus():
@@ -182,6 +124,9 @@ def cerberus():
     browser.visit(url)
     
     html = browser.html
+    
+    browser.quit()
+    
     soup = BeautifulSoup(html, 'html.parser')
     
     cerberus_img = soup.find_all("div", class_="downloads")
@@ -195,16 +140,6 @@ def cerberus():
 
     return cerberus_img
 
-
-# In[36]:
-
-
-print(cerberus())
-
-
-# In[37]:
-
-
 def schiaparelli():
     browser = init_browser()
     
@@ -212,6 +147,9 @@ def schiaparelli():
     browser.visit(url)
     
     html = browser.html
+    
+    browser.quit()
+    
     soup = BeautifulSoup(html, 'html.parser')
     
     schiaparelli_img = soup.find_all("div", class_="downloads")
@@ -226,15 +164,6 @@ def schiaparelli():
     return schiaparelli_img
 
 
-# In[38]:
-
-
-print(schiaparelli())
-
-
-# In[41]:
-
-
 def syrtis():
     browser = init_browser()
     
@@ -242,6 +171,10 @@ def syrtis():
     browser.visit(url)
     
     html = browser.html
+    
+    
+    browser.quit()
+    
     soup = BeautifulSoup(html, 'html.parser')
     
     syrtis_img = soup.find_all("div", class_="downloads")
@@ -256,15 +189,6 @@ def syrtis():
     return syrtis_img
 
 
-# In[42]:
-
-
-syrtis()
-
-
-# In[43]:
-
-
 def valles_marineris():
     browser = init_browser()
     
@@ -272,6 +196,9 @@ def valles_marineris():
     browser.visit(url)
     
     html = browser.html
+    
+    browser.quit()
+    
     soup = BeautifulSoup(html, 'html.parser')
     
     marineris_img = soup.find_all("div", class_="downloads")
@@ -285,56 +212,21 @@ def valles_marineris():
     
     return marineris_img
 
+# GENERAL SCRAPPING FUNCTION
 
-# In[44]:
-
-
-print(valles_marineris())
-
-
-# In[45]:
-
-
-# Dictionary for Hemispheres
-
-
-# In[46]:
-
-
-hemisphere_image_urls = {
-    "title": "Valles Marineris Hemisphere", "img_url": valles_marineris(),
-    "title": "Cerberus Hemisphere", "img_url": cerberus(),
-    "title": "Schiaparelli Hemisphere", "img_url": schiaparelli(),
-    "title": "Syrtis Major Hemisphere", "img_url": syrtis()
-    }
+def scrape():
+    dictionary = {
+        "_id": 1,
+        "Header": scrape_header(),
+        "Description": scrape_desc(),
+        "Featured_image": image_scrape(),
+        "Facts_table": table_scrape(),
+        "Cerberus_img": cerberus(),
+        "Schiaparelli_img": schiaparelli(),
+        "Syrtis_img": syrtis(),
+        "Marineris_img": valles_marineris()
+        }
+    return dictionary
 
 
-# In[47]:
-
-
-print(hemisphere_image_urls)
-
-
-# In[56]:
-
-
-hemispheres_list = []
-
-for x in hemisphere_image_urls.keys():
-    hemispheres_list.append({
-        'title': hemisphere_image_urls.keys(x),
-        'img_url': hemisphere_image_urls.values(x) 
-    })
-
-
-# In[53]:
-
-
-hemispheres_list
-
-
-# In[ ]:
-
-
-
-
+out_put = scrape()
